@@ -1,7 +1,6 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import math
-from heapq import heappop, heappush
+import matplotlib.pyplot as plt  # Biblioteka do tworzenia wykresów
+import numpy as np  # Biblioteka do obliczeń numerycznych
+import math  # Biblioteka matematyczna
 
 def read_mapa(filename):  # Wczytuje plik tekstowy i przekształca ją w dwuwymiarową listę
     with open(filename, 'r') as file:
@@ -13,13 +12,15 @@ def heurestyka(x, y):  # Heurystyka oparta na metryce euklidesowej
 
 def a_gwiazdka(map_data, start, cel):
     rzedy, kol = len(map_data), len(map_data[0])  # Wymiary mapy
-    oset = [(0, start)]  # Lista priorytetowa zawierająca węzły do odwiedzenia
+    oset = [(0, start)]  # Lista zawierająca węzły do odwiedzenia
     skad = {}  # Słownik śledzi skąd przyszedł algorytm do danego węzła
     g_score = {start: 0}  # Koszt dotarcia do każdego węzła od start
     f_score = {start: heurestyka(start, cel)}  # Przewidywany całkowity koszt
 
     while oset:
-        obecny = heappop(oset)[1]
+        # Znajdź węzeł z najmniejszą wartością f w liście otwartej
+        obecny = min(oset, key=lambda x: x[0])[1]
+        oset = [item for item in oset if item[1] != obecny]
 
         if obecny == cel:
             sciezka = []
@@ -30,25 +31,30 @@ def a_gwiazdka(map_data, start, cel):
             sciezka.reverse()
             return sciezka
 
-        #Kolejność obczajania sąsiadów: góra, dół, lewo, prawo
+        # Kolejność obczajania sąsiadów: góra, dół, lewo, prawo
         sasiedzi = [(obecny[0] + 1, obecny[1]), (obecny[0] - 1, obecny[1]),
-                     (obecny[0], obecny[1] + 1), (obecny[0], obecny[1] - 1)]
+                    (obecny[0], obecny[1] + 1), (obecny[0], obecny[1] - 1)]
 
         for sasiad in sasiedzi:
             if 0 <= sasiad[0] < rzedy and 0 <= sasiad[1] < kol and map_data[sasiad[0]][sasiad[1]] != 5:
-                tentative_g_score = g_score[obecny] + 1 #potencjalny koszt dojścia
+                tentative_g_score = g_score[obecny] + 1  # Potencjalny koszt dojścia
 
                 if sasiad not in g_score or tentative_g_score < g_score[sasiad]:
                     skad[sasiad] = obecny
                     g_score[sasiad] = tentative_g_score
                     f_score[sasiad] = tentative_g_score + heurestyka(sasiad, cel)
-                    heappush(oset, (f_score[sasiad], sasiad))
+                    oset.append((f_score[sasiad], sasiad))
 
-    raise Exception("Błąd 21- Brak dostępnej scieżki")  # Podnoszenie wyjątku w przypadku braku ścieżki
+    raise Exception("Błąd 21 - Brak dostępnej scieżki")  # Podnoszenie wyjątku w przypadku braku ścieżki
 
 def sciezka_zapis(map_dane, sciezka, plik):  # Zaznacza ścieżkę na mapie i zapisuje do pliku
     for x, y in sciezka:
         map_dane[x][y] = 3
+
+    # Zaznacz start i cel na mapie
+    start, cel = sciezka[0], sciezka[-1]
+    map_dane[start[0]][start[1]] = 1  # Początek na czerwono
+    map_dane[cel[0]][cel[1]] = 2  # Cel na niebiesko
 
     with open(plik, 'w') as file:
         for line in map_dane:
@@ -65,19 +71,25 @@ def wizualizuj(plik):  # POTEŻNA FUNKCJA DO WRZUCENIA NA WYKRES
 
     plt.figure(figsize=(7, 7))  # Tworzenie wykresu 7x7
 
+    # Definicja kolorów
     # 0 - biały (dostępne miejsca),
+    # 1 - czerwony (początek),
+    # 2 - niebieski (cel),
     # 3 - zielony (ścieżka),
     # 5 - szary (przeszkody)
-    cmap = plt.cm.colors.ListedColormap(['white', 'green', 'gray'])
-    przedzialy = [0, 1, 4, 6]  # Przedziały dla wartości
+    cmap = plt.cm.colors.ListedColormap(['white', 'blue', 'red', 'green', 'gray']) #tworzenie kolormapy
+    przedzialy = [0, 1, 2, 3, 4, 6]  # Przedziały dla wartości
     norm = plt.cm.colors.BoundaryNorm(przedzialy, cmap.N)
 
-    plt.imshow(grid, cmap=cmap, norm=norm)  # Rysowanie siatki
+    # Rysowanie siatki z przesunięciem o 0,5 jednostki w obu osiach
+    plt.imshow(grid, cmap=cmap, norm=norm, extent=[-0.5, grid.shape[1] - 0.5, -0.5, grid.shape[0] - 0.5])
 
-    plt.xticks(np.arange(grid.shape[1]), labels=np.arange(grid.shape[1]))
-    plt.yticks(np.arange(grid.shape[0]), labels=np.arange(grid.shape[0])[::-1])
+    # Ustawienia osi wykresu
+    # tick (zaznaczenia na osiach) to małe znaczniki na skali osi, które pomagają w odczytywaniu wartości na wykresie
+    plt.xticks(np.arange(grid.shape[1]) - 0.5, labels=np.arange(grid.shape[1]))       #przesunięcie siatki o 0.5 w lewo
+    plt.yticks(np.arange(grid.shape[0]) - 0.5, labels=np.arange(grid.shape[0])[::-1]) #przesunięcie o 0.5 w dól
     plt.grid(True, color='black', linewidth=0.5)
-    plt.title("Gotowa trasa z punktu startowego do celu ")
+    plt.title("Gotowa trasa z punktu startowego do celu")
     plt.show()
 
 mapa = 'mapa.txt'  # Wczytujemy mapę
@@ -99,4 +111,6 @@ try:
         wizualizuj(mapa_ze_sciezka)
 
 except Exception as e:
+    print(e)
+
     print(e)
