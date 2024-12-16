@@ -2,9 +2,9 @@ import matplotlib.pyplot as plt  # Biblioteka do tworzenia wykresów
 import numpy as np  # Biblioteka do obliczeń numerycznych
 import math  # Biblioteka matematyczna
 
-def read_mapa(filename):  # Wczytuje plik tekstowy i przekształca ją w dwuwymiarową listę
+def read_mapa(filename):  # Wczytuje plik tekstowy od końca do początku
     with open(filename, 'r') as file:
-        map_data = [list(map(int, line.strip().split())) for line in file]
+        map_data = [list(map(int, line.strip().split())) for line in file.readlines()[::-1]]
     return map_data
 
 def heurestyka(x, y):  # Heurystyka oparta na metryce euklidesowej
@@ -53,9 +53,9 @@ def sciezka_zapis(map_dane, sciezka, plik):  # Zaznacza ścieżkę na mapie i za
 
     # Zaznacz start i cel na mapie
     start, cel = sciezka[0], sciezka[-1]
-    map_dane[start[0]][start[1]] = 1  # Początek na czerwono
-    map_dane[cel[0]][cel[1]] = 2  # Cel na niebiesko
-
+    map_dane[start[0]][start[1]] = 1    # Zaznaczamy obydwa punkty na czerwono
+    map_dane[cel[0]][cel[1]] = 1        # Patrz 75 linijka
+    #odwrocona_mapa = map_dane[::-1]
     with open(plik, 'w') as file:
         for line in map_dane:
             file.write(' '.join(map(str, line)) + '\n')
@@ -74,11 +74,10 @@ def wizualizuj(plik):  # POTEŻNA FUNKCJA DO WRZUCENIA NA WYKRES
     # Definicja kolorów
     # 0 - biały (dostępne miejsca),
     # 1 - czerwony (początek),
-    # 2 - niebieski (cel),
     # 3 - zielony (ścieżka),
     # 5 - szary (przeszkody)
-    cmap = plt.cm.colors.ListedColormap(['white', 'blue', 'red', 'green', 'gray']) #tworzenie kolormapy
-    przedzialy = [0, 1, 2, 3, 4, 6]  # Przedziały dla wartości
+    cmap = plt.cm.colors.ListedColormap(['white', 'red', 'green', 'gray']) #tworzenie kolormapy
+    przedzialy = [0, 1, 3, 4, 6]  # Przedziały dla wartości
     norm = plt.cm.colors.BoundaryNorm(przedzialy, cmap.N)
 
     # Rysowanie siatki z przesunięciem o 0,5 jednostki w obu osiach
@@ -87,7 +86,8 @@ def wizualizuj(plik):  # POTEŻNA FUNKCJA DO WRZUCENIA NA WYKRES
     # Ustawienia osi wykresu
     # tick (zaznaczenia na osiach) to małe znaczniki na skali osi, które pomagają w odczytywaniu wartości na wykresie
     plt.xticks(np.arange(grid.shape[1]) - 0.5, labels=np.arange(grid.shape[1]))       #przesunięcie siatki o 0.5 w lewo
-    plt.yticks(np.arange(grid.shape[0]) - 0.5, labels=np.arange(grid.shape[0])[::-1]) #przesunięcie o 0.5 w dól
+    plt.yticks(np.arange(grid.shape[0]) + 0.5, labels=np.arange(grid.shape[0])[::-1]) #przesunięcie o 0.5 w dól [::-1]odwraca oś
+    plt.gca().invert_yaxis()
     plt.grid(True, color='black', linewidth=0.5)
     plt.title("Gotowa trasa z punktu startowego do celu")
     plt.show()
@@ -97,9 +97,6 @@ mapa = 'mapa.txt'  # Wczytujemy mapę
 map_dane = read_mapa(mapa)
 start = (0, 0)  # Współrzędne wpisujemy (Y, X) nie (X, Y)
 cel = (19, 19)
-
-start = (len(map_dane) - 1 - start[0], start[1])  # Nikczemne odbicie
-cel = (len(map_dane) - 1 - cel[0], cel[1])
 
 try:
     sciezka = a_gwiazdka(map_dane, start, cel)
@@ -113,4 +110,3 @@ try:
 except Exception as e:
     print(e)
 
-    print(e)
