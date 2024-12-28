@@ -74,7 +74,7 @@ def wizualizuj_animacje(map_dane, sciezka, g_score, f_score):
 
                 if f_value != float('inf') and (sasiad[0], sasiad[1]) not in all_texts:
                     text = ax.text(sasiad[1], grid.shape[0] - 1 - sasiad[0], f"{f_value:.2f}",
-                                   ha='center', va='center', color='black')
+                                   ha='center', va='center', color='black',fontsize=6)
                     all_texts[(sasiad[0], sasiad[1])] = text
 
         grid[x][y] = 3
