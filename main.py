@@ -1,31 +1,27 @@
-import matplotlib.pyplot as plt  # Biblioteka do tworzenia wykresów
-import numpy as np  # Biblioteka do obliczeń numerycznych
-import math  # Biblioteka matematyczna
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import numpy as np
+import math
 
-def read_mapa(filename):  # Wczytuje plik tekstowy od końca do początku
+def read_mapa(filename):
     with open(filename, 'r') as file:
-        map_data = [list(map(int, line.strip().split())) for line in file.readlines()[::-1]]
+        map_data = [list(map(int, line.strip().split())) for line in file]
     return map_data
 
-def heurestyka(x, y):  # Heurystyka oparta na metryce euklidesowej
+def heurestyka(x, y):
     return math.sqrt((x[0] - y[0]) ** 2 + (x[1] - y[1]) ** 2)
 
 def a_gwiazdka(map_data, start, cel):
-    rzedy, kol = len(map_data), len(map_data[0])  # Wymiary mapy
-
-    # Macierze przechowujące dane
-    g_score = [[float('inf')] * kol for _ in range(rzedy)]  # Koszt dotarcia
-    f_score = [[float('inf')] * kol for _ in range(rzedy)]  # Heurystyka
-    skad = [[None] * kol for _ in range(rzedy)]             # Poprzedni węzeł
-    # w każdym rzędzie tworzy liste z kolumnami i wypełnia ją wartościami None
+    rzedy, kol = len(map_data), len(map_data[0])
+    g_score = [[float('inf')] * kol for _ in range(rzedy)]
+    f_score = [[float('inf')] * kol for _ in range(rzedy)]
+    skad = [[None] * kol for _ in range(rzedy)]
     g_score[start[0]][start[1]] = 0
     f_score[start[0]][start[1]] = heurestyka(start, cel)
-
-    oset = [(f_score[start[0]][start[1]], start)]  # Lista otwarta
+    oset = [(f_score[start[0]][start[1]], start)]
 
     while oset:
-        # Znajdź węzeł z najmniejszym f_score w liście otwartej
-        obecny = min(oset, key=lambda x: x[0])[1]
+        obecny = min(oset, key=lambda x: (x[0], -oset.index(x)))[1]
         oset = [item for item in oset if item[1] != obecny]
 
         if obecny == cel:
@@ -34,16 +30,14 @@ def a_gwiazdka(map_data, start, cel):
                 sciezka.append(obecny)
                 obecny = skad[obecny[0]][obecny[1]]
             sciezka.reverse()
-            return sciezka
-        # [0] - oś Y
-        # [1]- oś X
-        # Sąsiedzi (góra, dół, lewo, prawo)
+            return sciezka, g_score, f_score
+
         sasiedzi = [(obecny[0] + 1, obecny[1]), (obecny[0] - 1, obecny[1]),
                     (obecny[0], obecny[1] + 1), (obecny[0], obecny[1] - 1)]
 
         for sasiad in sasiedzi:
             if 0 <= sasiad[0] < rzedy and 0 <= sasiad[1] < kol and map_data[sasiad[0]][sasiad[1]] != 5:
-                tentative_g_score = g_score[obecny[0]][obecny[1]] + 1 # Potencjalny koszt dojścia
+                tentative_g_score = g_score[obecny[0]][obecny[1]] + 1
 
                 if tentative_g_score < g_score[sasiad[0]][sasiad[1]]:
                     skad[sasiad[0]][sasiad[1]] = obecny
@@ -51,66 +45,59 @@ def a_gwiazdka(map_data, start, cel):
                     f_score[sasiad[0]][sasiad[1]] = tentative_g_score + heurestyka(sasiad, cel)
                     oset.append((f_score[sasiad[0]][sasiad[1]], sasiad))
 
-    raise Exception("Błąd 21 - Brak dostępnej scieżki") # Podnoszenie wyjątku w przypadku braku ścieżki
+    raise Exception("Błąd 21 - Brak dostępnej scieżki")
 
-def sciezka_zapis(map_dane, sciezka, plik):  # Zaznacza ścieżkę na mapie i zapisuje do pliku
-    for x, y in sciezka:
-        map_dane[x][y] = 3
+def wizualizuj_animacje(map_dane, sciezka, g_score, f_score):
+    grid = np.array(map_dane)
 
-    # Zaznacz start i cel na mapie
-    start, cel = sciezka[0], sciezka[-1]
-    map_dane[start[0]][start[1]] = 1    # Zaznaczamy obydwa punkty na czerwono
-    map_dane[cel[0]][cel[1]] = 1        # Patrz 75 linijka
-    #odwrocona_mapa = map_dane[::-1]
-    with open(plik, 'w') as file:
-        for line in map_dane:
-            file.write(' '.join(map(str, line)) + '\n')
-
-def wizualizuj(plik):  # POTEŻNA FUNKCJA DO WRZUCENIA NA WYKRES
-    with open(plik, 'r') as f:  # Wczytanie dane z pliku
-        dane = f.readlines()
-
-    grid = [list(map(int, line.strip().split())) for line in dane]  # Przekształcenie dane na listę liczb
-    grid = np.array(grid)  # Konwersja gridu na tablice
-
-    plt.figure(figsize=(7, 7))  # Tworzenie wykresu 7x7
-
-    # Definicja kolorów
-    # 0 - biały (dostępne miejsca),
-    # 1 - czerwony (początek),
-    # 3 - zielony (ścieżka),
-    # 5 - szary (przeszkody)
-    cmap = plt.cm.colors.ListedColormap(['white', 'red', 'green', 'gray'])  # tworzenie kolormapy ListedColormap-stworzenie niestandardowej mapy
-    przedzialy = [0, 1, 3, 4, 6]  # Przedziały dla wartości
+    fig, ax = plt.subplots(figsize=(10, 10))
+    cmap = plt.cm.colors.ListedColormap(['white', 'blue', 'red', 'green', 'gray'])
+    przedzialy = [0, 1, 2, 3, 4, 6]
     norm = plt.cm.colors.BoundaryNorm(przedzialy, cmap.N)
 
-    # Rysowanie siatki
-    # Argument 'extent' przesuwa siatkę o 0.5 jednostki, aby wyrównać współrzędne środka komórek
-    plt.imshow(grid, cmap=cmap, norm=norm, extent=[-0.5, grid.shape[1] - 0.5, -0.5, grid.shape[0] - 0.5])
+    im = ax.imshow(grid, cmap=cmap, norm=norm, extent=[-0.5, grid.shape[1] - 0.5, -0.5, grid.shape[0] - 0.5])
 
-    # Ustawienia osi wykresu
-    # tick (zaznaczenia na osiach) to małe znaczniki na skali osi, które pomagają w odczytywaniu wartości na wykresie
-    plt.xticks(np.arange(grid.shape[1]) - 0.5, labels=np.arange(grid.shape[1]))  #przesunięcie o 0.5 w lewo
-    plt.yticks(np.arange(grid.shape[0]) + 0.5, labels=np.arange(grid.shape[0])[::-1])  ##przesunięcie o 0.5 w dól [::-1]odwraca oś
-    plt.gca().invert_yaxis()
+    plt.xticks(np.arange(grid.shape[1]) - 0.5, labels=np.arange(grid.shape[1]))
+    plt.yticks(np.arange(grid.shape[0]) - 0.5, labels=np.arange(grid.shape[0]))
     plt.grid(True, color='black', linewidth=0.5)
     plt.title("Gotowa trasa z punktu startowego do celu")
+
+    all_texts = {}
+
+    def update(frame):
+        x, y = sciezka[frame]
+        sasiedzi = [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
+
+        for sasiad in sasiedzi:
+            if 0 <= sasiad[0] < grid.shape[0] and 0 <= sasiad[1] < grid.shape[1] and map_dane[sasiad[0]][sasiad[1]] != 5:
+                f_value = f_score[sasiad[0]][sasiad[1]]
+
+                if f_value != float('inf') and (sasiad[0], sasiad[1]) not in all_texts:
+                    text = ax.text(sasiad[1], grid.shape[0] - 1 - sasiad[0], f"{f_value:.2f}",
+                                   ha='center', va='center', color='black')
+                    all_texts[(sasiad[0], sasiad[1])] = text
+
+        grid[x][y] = 3
+        im.set_data(grid)
+        return [im] + list(all_texts.values())
+
+    ani = animation.FuncAnimation(fig, update, frames=len(sciezka), interval=1000, repeat=False)
     plt.show()
 
-mapa = 'mapa.txt'  # Wczytujemy mapę
-
+mapa = 'mapa.txt'
 map_dane = read_mapa(mapa)
-start = (0, 0)  # Współrzędne wpisujemy (Y, X) nie (X, Y)
+start = (0, 0)
 cel = (19, 19)
 
+start = (len(map_dane) - 1 - start[0], start[1])
+cel = (len(map_dane) - 1 - cel[0], cel[1])
+
 try:
-    sciezka = a_gwiazdka(map_dane, start, cel)
+    sciezka, g_score, f_score = a_gwiazdka(map_dane, start, cel)
 
     if sciezka is not None:
-        mapa_ze_sciezka = 'map_ze_sciezka.txt'
-        sciezka_zapis(map_dane, sciezka, mapa_ze_sciezka)
-        print("Ścieżka znaleziona i zapisana w", mapa_ze_sciezka)
-        wizualizuj(mapa_ze_sciezka)
+        print("Ścieżka znaleziona")
+        wizualizuj_animacje(map_dane, sciezka, g_score, f_score)
 
 except Exception as e:
     print(e)
